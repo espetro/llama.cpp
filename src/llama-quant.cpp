@@ -298,6 +298,7 @@ static bool tensor_allows_quantization(const llama_model_quantize_params * param
 
     // do not quantize norm tensors
     quantize &= name.find("_norm.weight") == std::string::npos;
+    quantize &= name.rfind("dec.head_", 0) != 0;
 
     quantize &= params->quantize_output_tensor || name != "output.weight";
 
