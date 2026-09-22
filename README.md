@@ -1,5 +1,15 @@
 # llama.cpp
 
+> [!NOTE]
+> **This fork adds native support for [Kev](https://github.com/jaredpalmer/kev) System One decision models.** A Kev GGUF loads like any other model and `llama-server` exposes the TypeSafe-compatible `POST /v1/systemone` endpoint plus a `/studio` page for editing state and questions. No Python at inference time.
+>
+> ```sh
+> llama-server -m kev-0.8b-q8_0.gguf
+> curl localhost:8080/v1/systemone -d '{"state":"Shoes arrived late and in the wrong size","questions":{"refund":{"type":"noul","instructions":"Should we refund?"}}}'
+> ```
+>
+> Prebuilt binaries for macOS, Linux, Windows, Android and iOS are on the [releases page](https://github.com/espetro/llama.cpp/releases) (tags `kev-*`). Packing your own GGUF, the `llama-decide` CLI and the API are described in [docs/kev.md](docs/kev.md). Everything else is stock upstream llama.cpp.
+
 ![llama](https://raw.githubusercontent.com/ggml-org/llama.brand/refs/heads/master/cover/llama-cpp/cover-llama-cpp-dark.svg)
 
 <div align="center">
