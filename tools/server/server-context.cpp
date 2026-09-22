@@ -6,6 +6,7 @@
 #include "server-queue.h"
 #include "server-schema.h"
 #include "server-stream.h"
+#include "studio.h"
 
 #include "build-info.h"
 #include "common.h"
@@ -840,6 +841,7 @@ public:
     llama_model * model_tgt = nullptr;
 
     mtmd_context * mctx = nullptr;
+    std::unique_ptr<server_decision> decision;
     // note: video_params.ffmpeg_bin_dir points into params_base, which outlives this struct
     mtmd_helper_init_opt init_opt = mtmd_helper_init_opt_default();
     const llama_vocab * vocab = nullptr;
@@ -936,6 +938,7 @@ private:
     int64_t t_last_load_progress_ms = 0;
 
     void destroy() {
+        decision.reset();
         spec.reset();
         spec_init.reset();
 
@@ -1114,6 +1117,21 @@ private:
         vocab = llama_model_get_vocab(model_tgt);
 
         n_ctx = llama_n_ctx(ctx_tgt);
+
+        decision = std::make_unique<server_decision>();
+        std::string decision_err;
+        if (!decision->init(params_base, model_tgt, ctx_tgt, decision_err)) {
+            if (!params_base.kev_head_path.empty() || decision_err != "model has no Kev head (kev.* metadata)") {
+                SRV_ERR("failed to load Kev decision head: %s\n", decision_err.c_str());
+                return false;
+            }
+            SRV_DBG("%s\n", "no Kev head found");
+            decision.reset();
+        } else {
+            const auto & head = decision->get_head();
+            SRV_INF("Kev decision head loaded (head_dim %d, temperature %.3f, source %s); serving POST /v1/systemone and GET /studio\n",
+                    head.head_dim, head.temperature, head.source.c_str());
+        }
 
         add_bos_token = llama_vocab_get_add_bos(vocab);
 
@@ -4221,6 +4239,10 @@ server_context_meta server_context::get_meta() const {
         /* model_n_params         */ llama_model_n_params(impl->model_tgt),
         /* model_size             */ llama_model_size(impl->model_tgt),
         /* model_ftype            */ ftype_name,
+        /* has_decision          */ impl->decision != nullptr,
+        /* decision_head_dim     */ impl->decision ? impl->decision->get_head().head_dim : 0,
+        /* decision_temperature  */ impl->decision ? impl->decision->get_head().temperature : 0.0f,
+        /* decision_source       */ impl->decision ? impl->decision->get_head().source : "",
     };
 }
 
@@ -4543,6 +4565,24 @@ server_routes::server_routes(const common_params & params, server_context & ctx_
 static json get_res_model_info(const server_context_meta & meta) {
     // note: do NOT use ctx_server here, otherwise it's not possible to use this during sleep
 
+    json model_meta = {
+        {"vocab_type",  meta.model_vocab_type},
+        {"n_vocab",     meta.model_vocab_n_tokens},
+        {"n_ctx",       meta.slot_n_ctx},
+        {"n_ctx_train", meta.model_n_ctx_train},
+        {"n_embd",      meta.model_n_embd_inp},
+        {"n_params",    meta.model_n_params},
+        {"size",        meta.model_size},
+        {"ftype",       meta.model_ftype},
+    };
+    if (meta.has_decision) {
+        model_meta["kev"] = {
+            {"head_dim", meta.decision_head_dim},
+            {"temperature", meta.decision_temperature},
+            {"source", meta.decision_source},
+        };
+    }
+
     return {
         {"id",       meta.model_name},
         {"aliases",  meta.model_aliases},
@@ -4550,16 +4590,7 @@ static json get_res_model_info(const server_context_meta & meta) {
         {"object",   "model"},
         {"created",  std::time(0)},
         {"owned_by", "llamacpp"},
-        {"meta",     {
-            {"vocab_type",  meta.model_vocab_type},
-            {"n_vocab",     meta.model_vocab_n_tokens},
-            {"n_ctx",       meta.slot_n_ctx},
-            {"n_ctx_train", meta.model_n_ctx_train},
-            {"n_embd",      meta.model_n_embd_inp},
-            {"n_params",    meta.model_n_params},
-            {"size",        meta.model_size},
-            {"ftype",       meta.model_ftype},
-        }},
+        {"meta",     std::move(model_meta)},
     };
 }
 
@@ -5221,6 +5252,45 @@ void server_routes::init_routes() {
             top_n);
 
         res->ok(root);
+        return res;
+    };
+
+    this->post_systemone = [this](const server_http_req & req) {
+        auto res = create_response(true);
+        if (!ctx_server.decision) {
+            res->error(format_error_response("File Not Found", ERROR_TYPE_NOT_FOUND));
+            return res;
+        }
+        try {
+            const auto body = nlohmann::ordered_json::parse(req.body);
+            nlohmann::ordered_json result;
+            std::string err;
+            if (!ctx_server.decision->run(body, result, err)) {
+                res->error(format_error_response(err, ERROR_TYPE_INVALID_REQUEST));
+                return res;
+            }
+            const std::string model = meta->model_name;
+            const nlohmann::ordered_json response = {
+                {"model", model},
+                {"answers", result.at("answers")},
+                {"latency_ms", result.at("latency_ms")},
+            };
+            res->headers["x-typesafe-request-id"] = random_string();
+            res->ok(json::parse(response.dump()));
+        } catch (const std::exception & e) {
+            res->error(format_error_response(e.what(), ERROR_TYPE_INVALID_REQUEST));
+        }
+        return res;
+    };
+
+    this->get_studio = [this](const server_http_req &) {
+        auto res = create_response(true);
+        if (!ctx_server.decision) {
+            res->error(format_error_response("File Not Found", ERROR_TYPE_NOT_FOUND));
+            return res;
+        }
+        res->content_type = "text/html; charset=utf-8";
+        res->data.assign(reinterpret_cast<const char *>(server_kev_studio_html), server_kev_studio_html_len);
         return res;
     };
 

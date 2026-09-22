@@ -4,6 +4,12 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(TARGET server-context)
 
+# embed as a byte array: MSVC limits string literals to 16 KB
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/public_kev/studio.html" SERVER_KEV_STUDIO_HEX HEX)
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," SERVER_KEV_STUDIO_HTML "${SERVER_KEV_STUDIO_HEX}")
+configure_file(studio.h.in studio.h @ONLY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/public_kev/studio.html")
+
 add_library(${TARGET} STATIC
     server-chat.cpp
     server-chat.h
@@ -23,6 +29,9 @@ add_library(${TARGET} STATIC
     server-mcp.h
     server-schema.cpp
     server-schema.h
+    server-decision.cpp
+    server-decision.h
+    ${CMAKE_CURRENT_BINARY_DIR}/studio.h
 )
 
 if (BUILD_SHARED_LIBS)
