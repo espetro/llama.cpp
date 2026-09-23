@@ -14,16 +14,17 @@ Kev answers typed questions about a piece of state and returns calibrated probab
 Stock llama.cpp packages (`brew`, `winget`, `conda-forge`) do **not** include Kev support. Use one of these:
 
 ```sh
-# Linux x64 - pre-built release (see the releases page for macOS/Windows/arm64/Vulkan/SYCL assets)
-TAG=kev-b11127-e45aa3d
+# Linux x64 - latest pre-built release (see the releases page for macOS/Windows/arm64/Vulkan/CUDA/SYCL assets)
+TAG=$(curl -s https://api.github.com/repos/espetro/llama.cpp/releases | grep -m1 '"tag_name"' | cut -d'"' -f4)
 curl -L -o llama-kev.tar.gz https://github.com/espetro/llama.cpp/releases/download/$TAG/llama-$TAG-bin-ubuntu-x64.tar.gz
 tar xf llama-kev.tar.gz && export PATH="$PWD/llama-$TAG:$PATH"
 ```
 
 ```sh
-# any platform - mise, pinned to a kev tag
-mise use -g "github:espetro/llama.cpp[asset_pattern=llama-*-bin-ubuntu-x64.tar.gz]@kev-b11127-e45aa3d"
+# any platform - mise; kev releases are pre-releases, so prerelease=true is required
+mise use -g "github:espetro/llama.cpp[asset_pattern=llama-*-bin-ubuntu-x64.tar.gz,prerelease=true]@latest"
 # macOS arm64: asset_pattern=llama-*-bin-macos-arm64.tar.gz    Windows: llama-*-bin-win-cpu-x64.zip
+# mise hides releases younger than 24 h; pass an explicit @kev-<tag> to take a fresh one
 ```
 
 ```sh
