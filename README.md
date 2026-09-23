@@ -92,7 +92,11 @@ The head tensors stay F32 through quantization. Measured against Kev's Python re
 
 ### 6. Optional: no server at all
 
-The 0.8B model also runs client side, compiled with emscripten (`tools/kev/wasm/build.sh`, about 1 GB live in the tab, 2.1 s for 3 questions with 4 threads). See [docs/kev.md](docs/kev.md#browser-wasm).
+The 0.8B model also runs client side, compiled with emscripten (`tools/kev/wasm/build.sh`, about 1 GB live in the tab, 2.1 s for 3 questions with 4 threads). [examples/kev-web](examples/kev-web) is the static page for it: the runtime and the GGUF are fetched only when you press Load, then cached by the browser. See [docs/kev.md](docs/kev.md#browser-wasm).
+
+### 7. Try Kev without installing anything
+
+Kev's authors run a hosted Gradio demo on free ZeroGPU with the original Python stack: [huggingface.co/spaces/jaredpalmer/kev](https://huggingface.co/spaces/jaredpalmer/kev) (0.8B and 4B, ready-made examples). Good for a first look at 4B; this fork is the path for running Kev yourself.
 
 ![llama](https://raw.githubusercontent.com/ggml-org/llama.brand/refs/heads/master/cover/llama-cpp/cover-llama-cpp-dark.svg)
 

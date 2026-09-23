@@ -97,6 +97,8 @@ const kev = await loadKev({ model: "model.gguf", rowCap: 1024, threads: 4 });
 const response = kev.systemOne({ state: "...", questions: { ... } });
 ```
 
+[examples/kev-web](../examples/kev-web) is the deployable version of that demo: presets, a Load button so nothing large is fetched until the user asks, the Cache API for the model, and a service worker that adds COOP/COEP because GitHub Pages cannot send headers. `.github/workflows/kev-pages.yml` builds it. Hosting the GGUF elsewhere needs CORS on that host.
+
 `rowCap` matters in a tab: the context is `4 * rowCap` tokens, and the model default (8192) asks for more memory than a browser gives. 1024 rows on 0.8B q8_0 need about 1 GB live. Measured on this box, 3 questions on a short state: 2.1 s with 4 threads, 7.1 s single threaded, 0.36 s native. Probabilities match the native run to |dp| 0.009 (different SIMD kernels), same argmax. Bigger models are impractical in a tab - the download alone is 814 MB for 0.8B q8_0, and q4_k_m drifts 0.15 which defeats the calibration.
 
 ## GGUF format
