@@ -76,6 +76,29 @@ Two ways to get a GGUF with a head:
 
 Measured against Kev's Python reference on the 0.8B fixtures: max |dp| 0.0005 (F16) / 0.011 (Q8_0), 0 argmax flips.
 
+## Browser (WASM)
+
+The same decision path builds with emscripten as `kev.js`/`kev.wasm`, so a 0.8B q8_0 model runs fully client side:
+
+```sh
+source /path/to/emsdk/emsdk_env.sh
+tools/kev/wasm/build.sh                         # threaded build, needs COOP/COEP when served
+KEV_WASM_THREADS=0 tools/kev/wasm/build.sh      # single thread, works on any static host
+
+cp kev-0.8b-q8_0.gguf build-wasm-kev/bin/model.gguf
+tools/kev/wasm/serve.py build-wasm-kev/bin      # sends the COOP/COEP headers threads need
+```
+
+`index.html` is a small demo of the JS API; `?model=<url>`, `?threads=N` and `?rowcap=N` override its defaults.
+
+```js
+import { loadKev } from "./kev-wasm.js";
+const kev = await loadKev({ model: "model.gguf", rowCap: 1024, threads: 4 });
+const response = kev.systemOne({ state: "...", questions: { ... } });
+```
+
+`rowCap` matters in a tab: the context is `4 * rowCap` tokens, and the model default (8192) asks for more memory than a browser gives. 1024 rows on 0.8B q8_0 need about 1 GB live. Measured on this box, 3 questions on a short state: 2.1 s with 4 threads, 7.1 s single threaded, 0.36 s native. Probabilities match the native run to |dp| 0.009 (different SIMD kernels), same argmax. Bigger models are impractical in a tab - the download alone is 814 MB for 0.8B q8_0, and q4_k_m drifts 0.15 which defeats the calibration.
+
 ## GGUF format
 
 Four F32 tensors: `dec.head_q.{weight,bias}`, `dec.head_k.{weight,bias}` (`[n_embd, head_dim]`).
@@ -88,7 +111,7 @@ Each request is encoded as one row per question: `<state> ... <question> ... <op
 
 The server uses a small dedicated decision context (4 sequences, row capacity `min(kev.limits.max_row, n_ctx_seq)`) next to the normal one, so decisions and chat can share a loaded model. Requests are serialized through a mutex; states longer than the row capacity minus the longest question branch are truncated.
 
-Code: `common/decision.{h,cpp}` (encoding, execution, pointer head, answer formatting), `tools/kev/` (CLI + packer), `tools/server/server-decision.{h,cpp}` and `tools/server/public_kev/studio.html` (embedded at build time).
+Code: `common/decision.{h,cpp}` (encoding, execution, pointer head, answer formatting), `tools/kev/` (CLI, packer, WASM wrapper), `tools/server/server-decision.{h,cpp}` and `tools/server/public_kev/studio.html` (embedded at build time).
 
 ## Licenses
 

@@ -90,6 +90,10 @@ llama-server -m kev-0.8b-q8_0.gguf
 
 The head tensors stay F32 through quantization. Measured against Kev's Python reference on the 0.8B fixtures: max probability delta 0.0005 (F16) / 0.011 (Q8_0), 0 argmax flips.
 
+### 6. Optional: no server at all
+
+The 0.8B model also runs client side, compiled with emscripten (`tools/kev/wasm/build.sh`, about 1 GB live in the tab, 2.1 s for 3 questions with 4 threads). See [docs/kev.md](docs/kev.md#browser-wasm).
+
 ![llama](https://raw.githubusercontent.com/ggml-org/llama.brand/refs/heads/master/cover/llama-cpp/cover-llama-cpp-dark.svg)
 
 <div align="center">
