@@ -2018,7 +2018,7 @@ jobs:
             }
 
   ui-publish:
-    if: ${{ ( github.event_name == 'push' && github.ref == 'refs/heads/master' ) || github.event.inputs.create_release == 'true' }}
+    if: false # fork: no HF_TOKEN_UI_STATIC_OUTPUT secret
 
     needs:
       - release
