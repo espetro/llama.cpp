@@ -152,8 +152,6 @@ jobs:
             os: ubuntu-22.04
           - build: 'arm64'
             os: ubuntu-24.04-arm
-          - build: 's390x'
-            os: ubuntu-24.04-s390x
 
     runs-on: ${{ matrix.os }}
 
@@ -187,7 +185,6 @@ jobs:
           echo "CXX=g++-14" >> "$GITHUB_ENV"
 
       - name: ccache
-        if: ${{ matrix.build != 's390x' }}
         uses: ggml-org/ccache-action@v1.2.24
         with:
           key: release-${{ matrix.os }}-cpu
@@ -223,7 +220,6 @@ jobs:
           name: llama-bin-ubuntu-${{ matrix.build }}.tar.gz
 
       - name: ccache-clear
-        if: ${{ matrix.build != 's390x' }}
         uses: ./.github/actions/ccache-clear
         with:
           key: release-${{ matrix.os }}-cpu
@@ -1966,7 +1962,6 @@ jobs:
             **Linux:**
             - [Ubuntu x64 (CPU)](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/llama-${{ steps.tag.outputs.name }}-bin-ubuntu-x64.tar.gz)
             - [Ubuntu arm64 (CPU)](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/llama-${{ steps.tag.outputs.name }}-bin-ubuntu-arm64.tar.gz)
-            - [Ubuntu s390x (CPU)](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/llama-${{ steps.tag.outputs.name }}-bin-ubuntu-s390x.tar.gz)
             - [Ubuntu x64 (Vulkan)](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/llama-${{ steps.tag.outputs.name }}-bin-ubuntu-vulkan-x64.tar.gz)
             - [Ubuntu arm64 (Vulkan)](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/llama-${{ steps.tag.outputs.name }}-bin-ubuntu-vulkan-arm64.tar.gz)
             - [Ubuntu x64 (CUDA 12)](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/llama-${{ steps.tag.outputs.name }}-bin-ubuntu-cuda-12.8-x64.tar.gz) - [CUDA 12.8 libraries](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/cudart-llama-${{ steps.tag.outputs.name }}-bin-ubuntu-cuda-12.8-x64.tar.gz)
