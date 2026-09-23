@@ -7,9 +7,10 @@
 
 import createKev from "./kev.js";
 
+// model is a GGUF URL or the bytes of one
 export async function loadKev({ model, rowCap = 1024, threads = 0, onProgress } = {}) {
     if (!model) {
-        throw new Error("loadKev needs a model URL");
+        throw new Error("loadKev needs a model URL or model bytes");
     }
 
     // threads need COOP/COEP headers, a page without them can only run single-threaded
@@ -19,8 +20,9 @@ export async function loadKev({ model, rowCap = 1024, threads = 0, onProgress } 
     }
     const nthreads = threads || (self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1);
 
-    const mod = await createKev();
-    mod.FS.writeFile("/model.gguf", await fetchModel(model, onProgress));
+    // llama.cpp logs go to stderr, console.error would mark every load line as a page error
+    const mod = await createKev({ printErr: (text) => console.log(text) });
+    mod.FS.writeFile("/model.gguf", typeof model === "string" ? await fetchModel(model, onProgress) : model);
 
     const rc = mod.ccall("kev_init", "number", ["string", "number", "number"], ["/model.gguf", rowCap, nthreads]);
     if (rc !== 0) {
