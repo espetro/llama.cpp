@@ -57,7 +57,13 @@ llama-decide -m kev-0.8b-q8_0.gguf --check reference.json      # parity against 
 
 ## Models
 
-Two ways to get a GGUF with a head:
+Ready-made packed q8_0 GGUFs (embedded head) are at [espetro/kev-0.8b-gguf](https://huggingface.co/espetro/kev-0.8b-gguf), `espetro/kev-4b-gguf` and `espetro/kev-9b-gguf`:
+
+```sh
+llama-server -hf espetro/kev-0.8b-gguf
+```
+
+Two ways to get a GGUF with a head yourself:
 
 1. **Embedded head (preferred).** Pack the head into the backbone GGUF once:
 

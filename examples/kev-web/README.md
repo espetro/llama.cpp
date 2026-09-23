@@ -1,7 +1,9 @@
 # kev-web
 
 Static page that runs Kev-0.8B in the tab: the wasm runtime and the GGUF are only fetched when the user clicks
-**Load model**, the model then stays in the browser cache. Deployed from `.github/workflows/kev-pages.yml`.
+**Load model**, the model then stays in the browser cache. Deployed from `.github/workflows/kev-pages.yml` to
+[espetro.github.io/llama.cpp](https://espetro.github.io/llama.cpp/). The default model is the packed q8_0 at
+[espetro/kev-0.8b-gguf](https://huggingface.co/espetro/kev-0.8b-gguf).
 
 The page needs three build outputs next to it (`kev.js`, `kev.wasm`, `kev-wasm.js`), so serve it from an assembled
 directory, not from the source tree:

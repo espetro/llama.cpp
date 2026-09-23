@@ -37,17 +37,28 @@ Released assets: macOS arm64/x64, Linux x64/arm64 (CPU, Vulkan, CUDA 12.8 and 13
 
 ### 2. Get a model
 
-The 0.8B bundle from [taigrr/kev-0.8b-gguf](https://huggingface.co/taigrr/kev-0.8b-gguf) works as is (4B and 9B are at `taigrr/kev-4b-gguf` and `taigrr/kev-9b-gguf`):
+Pre-packed GGUFs (pointer head baked in, q8_0) are on Hugging Face — `-hf` downloads and loads in one step:
+
+```sh
+llama-server -hf espetro/kev-0.8b-gguf        # also kev-4b-gguf and kev-9b-gguf
+```
+
+Or fetch the file yourself:
 
 ```sh
 pip install -U huggingface_hub
-hf download taigrr/kev-0.8b-gguf model-f16.gguf head.json --local-dir kev-0.8b
+hf download espetro/kev-0.8b-gguf --local-dir kev-0.8b
+llama-server -m kev-0.8b/kev-0.8b-q8_0.gguf
 ```
+
+The raw gojev bundles (F16 backbone + separate `head.json`, no packing) are at [taigrr/kev-0.8b-gguf](https://huggingface.co/taigrr/kev-0.8b-gguf) (also `kev-4b-gguf`, `kev-9b-gguf`) — run them with `-m model-f16.gguf --kev-head head.json`.
 
 ### 3. Run it
 
+If you started the server with `-hf` above it is already running; otherwise:
+
 ```sh
-llama-server -m kev-0.8b/model-f16.gguf --kev-head kev-0.8b/head.json
+llama-server -m kev-0.8b/kev-0.8b-q8_0.gguf
 ```
 
 ```sh
@@ -71,19 +82,20 @@ curl localhost:8080/v1/systemone -H 'content-type: application/json' -d '{
 Same request from the CLI, without a server:
 
 ```sh
-llama-decide -m kev-0.8b/model-f16.gguf --kev-head kev-0.8b/head.json --json request.json
+llama-decide -hf espetro/kev-0.8b-gguf --json request.json
 ```
 
 ### 4. Play with it in the browser
 
 Open http://localhost:8080/studio while the server runs: edit the state, add `noul` / `choice` / `score` questions, re-run on every change, and read per-option probability bars with confidence labels (automate / review / escalate). The page also shows the matching curl and Python snippets for the request you built.
 
-### 5. Optional: one self-contained GGUF
+### 5. Optional: pack a checkpoint yourself
 
-Packing the head into the model removes `--kev-head` and lets you quantize:
+The `espetro/kev-*-gguf` repos are produced exactly like this — download a gojev bundle, fold its `head.json` into the backbone GGUF, then quantize:
 
 ```sh
-python tools/kev/kev_pack.py --gguf kev-0.8b/model-f16.gguf --head kev-0.8b/head.json --out kev-0.8b-f16.gguf
+hf download taigrr/kev-0.8b-gguf model-f16.gguf head.json manifest.json --local-dir kev-0.8b-src
+python tools/kev/kev_pack.py --gguf kev-0.8b-src/model-f16.gguf --head kev-0.8b-src/head.json --manifest kev-0.8b-src/manifest.json --out kev-0.8b-f16.gguf
 llama-quantize kev-0.8b-f16.gguf kev-0.8b-q8_0.gguf q8_0
 llama-server -m kev-0.8b-q8_0.gguf
 ```
@@ -92,7 +104,7 @@ The head tensors stay F32 through quantization. Measured against Kev's Python re
 
 ### 6. Optional: no server at all
 
-The 0.8B model also runs client side, compiled with emscripten (`tools/kev/wasm/build.sh`, about 1 GB live in the tab, 2.1 s for 3 questions with 4 threads). [examples/kev-web](examples/kev-web) is the static page for it: the runtime and the GGUF are fetched only when you press Load, then cached by the browser. See [docs/kev.md](docs/kev.md#browser-wasm).
+The 0.8B model also runs client side, compiled with emscripten (`tools/kev/wasm/build.sh`, about 1 GB live in the tab, 2.1 s for 3 questions with 4 threads). [examples/kev-web](examples/kev-web) is the static page for it: the runtime and the GGUF are fetched only when you press Load, then cached by the browser. A hosted copy runs at [espetro.github.io/llama.cpp](https://espetro.github.io/llama.cpp/). See [docs/kev.md](docs/kev.md#browser-wasm).
 
 ### 7. Try Kev without installing anything
 
