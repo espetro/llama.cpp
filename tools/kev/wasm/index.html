@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kev - System One in the browser</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; color: #1b1b1f; }
+h1 { font-size: 1.3rem; }
+textarea { width: 100%; font-family: ui-monospace, monospace; font-size: .85rem; }
+button { padding: .4rem 1rem; font-size: .9rem; }
+#status { color: #555; font-size: .85rem; margin: .5rem 0; }
+pre { background: #f5f5f7; padding: .75rem; overflow-x: auto; font-size: .8rem; }
+.bar { background: #e5e5ea; height: .6rem; border-radius: .3rem; overflow: hidden; }
+.bar > div { background: #3b7dd8; height: 100%; }
+.row { display: grid; grid-template-columns: 9rem 1fr 4rem; gap: .5rem; align-items: center; margin: .2rem 0; font-size: .85rem; }
+</style>
+</head>
+<body>
+<h1>Kev - System One in the browser</h1>
+<p id="status">loading...</p>
+
+<p>State</p>
+<textarea id="state" rows="3">Shoes arrived two weeks late and in the wrong size. Also I see two charges on my card.</textarea>
+<p>Questions</p>
+<textarea id="questions" rows="9">{
+  "department": {"type": "choice", "instructions": "Which team should handle this?",
+                 "criteria": {"returns": "Exchanges, refunds", "shipping": "Delays, lost packages", "billing": "Charges, invoices"}},
+  "escalate":   {"type": "noul", "instructions": "Should a human agent take over right away?"},
+  "frustration":{"type": "score", "instructions": "How frustrated is the customer?", "criteria": ["Calm", "Frustrated", "Very angry"]}
+}</textarea>
+<p><button id="run" disabled>Run</button></p>
+<div id="answers"></div>
+<pre id="raw"></pre>
+
+<script type="module">
+import { loadKev } from "./kev-wasm.js";
+
+const status = document.getElementById("status");
+const runBtn = document.getElementById("run");
+const answersEl = document.getElementById("answers");
+const rawEl = document.getElementById("raw");
+
+// same file name the build docs use; drop a packed q8_0 GGUF next to this page
+const params = new URLSearchParams(location.search);
+const MODEL = params.get("model") || "model.gguf";
+
+let kev;
+try {
+    kev = await loadKev({
+        model: MODEL,
+        threads: Number(params.get("threads")) || 0,
+        rowCap: Number(params.get("rowcap")) || 1024,
+        onProgress: (read, total) => {
+            const mb = (read / 1e6).toFixed(0);
+            status.textContent = total ? `downloading model: ${mb} / ${(total / 1e6).toFixed(0)} MB` : `downloading model: ${mb} MB`;
+        },
+    });
+    status.textContent = `ready - ${kev.threads} thread(s), model ${MODEL}`;
+    runBtn.disabled = false;
+} catch (err) {
+    status.textContent = `failed: ${err.message}`;
+}
+
+runBtn.addEventListener("click", () => {
+    let questions;
+    try {
+        questions = JSON.parse(document.getElementById("questions").value);
+    } catch (err) {
+        status.textContent = `questions are not valid JSON: ${err.message}`;
+        return;
+    }
+
+    runBtn.disabled = true;
+    status.textContent = "running...";
+    // let the browser paint before the synchronous decode
+    setTimeout(() => {
+        try {
+            const response = kev.systemOne({ state: document.getElementById("state").value, questions });
+            status.textContent = `${response.latency_ms} ms`;
+            render(response.answers);
+            rawEl.textContent = JSON.stringify(response, null, 2);
+        } catch (err) {
+            status.textContent = `failed: ${err.message}`;
+        } finally {
+            runBtn.disabled = false;
+        }
+    }, 0);
+});
+
+function render(answers) {
+    answersEl.replaceChildren();
+    for (const [id, answer] of Object.entries(answers)) {
+        const title = document.createElement("p");
+        title.innerHTML = `<b>${id}</b> - ${summary(answer)}`;
+        answersEl.appendChild(title);
+        for (const [key, prob] of Object.entries(answer.probabilities || {})) {
+            const row = document.createElement("div");
+            row.className = "row";
+            row.innerHTML = `<span>${key}</span><div class="bar"><div style="width:${(prob * 100).toFixed(1)}%"></div></div>` +
+                            `<span>${prob.toFixed(4)}</span>`;
+            answersEl.appendChild(row);
+        }
+    }
+}
+
+function summary(answer) {
+    if (answer.type === "noul") {
+        return `noul ${answer.noul.toFixed(4)}`;
+    }
+    if (answer.type === "choice") {
+        return `${answer.choice} (confidence ${answer.confidence.toFixed(4)})`;
+    }
+    return `score ${answer.score.toFixed(4)} (confidence ${answer.confidence.toFixed(4)})`;
+}
+</script>
+</body>
+</html>
