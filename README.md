@@ -1,14 +1,93 @@
 # llama.cpp
 
 > [!NOTE]
-> **This fork adds native support for [Kev](https://github.com/jaredpalmer/kev) System One decision models.** A Kev GGUF loads like any other model and `llama-server` exposes the TypeSafe-compatible `POST /v1/systemone` endpoint plus a `/studio` page for editing state and questions. No Python at inference time.
+> **This fork adds native support for [Kev](https://github.com/jaredpalmer/kev) System One decision models.** A Kev GGUF loads like any other model, and `llama-server` exposes the TypeSafe-compatible `POST /v1/systemone` endpoint plus a `/studio` page for editing state and questions. No Python at inference time. Everything else is stock upstream llama.cpp.
 >
-> ```sh
-> llama-server -m kev-0.8b-q8_0.gguf
-> curl localhost:8080/v1/systemone -d '{"state":"Shoes arrived late and in the wrong size","questions":{"refund":{"type":"noul","instructions":"Should we refund?"}}}'
-> ```
->
-> Prebuilt binaries for macOS, Linux, Windows, Android and iOS are on the [releases page](https://github.com/espetro/llama.cpp/releases) (tags `kev-*`). Packing your own GGUF, the `llama-decide` CLI and the API are described in [docs/kev.md](docs/kev.md). Everything else is stock upstream llama.cpp.
+> Jump to [Kev in 5 minutes](#kev-in-5-minutes) for install, model download and a first run.
+
+## Kev in 5 minutes
+
+Kev answers typed questions about a piece of state and returns calibrated probabilities instead of text (prefill only, nothing generated). Useful for classification, routing, moderation, scoring and tool-call gating. Full reference: [docs/kev.md](docs/kev.md).
+
+### 1. Install this fork
+
+Stock llama.cpp packages (`brew`, `winget`, `conda-forge`) do **not** include Kev support. Use one of these:
+
+```sh
+# Linux x64 - pre-built release (see the releases page for macOS/Windows/arm64/Vulkan/SYCL assets)
+TAG=kev-b11125-822721b
+curl -L -o llama-kev.tar.gz https://github.com/espetro/llama.cpp/releases/download/$TAG/llama-$TAG-bin-ubuntu-x64.tar.gz
+tar xf llama-kev.tar.gz && export PATH="$PWD/llama-$TAG:$PATH"
+```
+
+```sh
+# any platform - mise, pinned to a kev tag
+mise use -g "github:espetro/llama.cpp[asset_pattern=llama-*-bin-ubuntu-x64.tar.gz]@kev-b11125-822721b"
+# macOS arm64: asset_pattern=llama-*-bin-macos-arm64.tar.gz    Windows: llama-*-bin-win-cpu-x64.zip
+```
+
+```sh
+# from source
+git clone -b kev https://github.com/espetro/llama.cpp && cd llama.cpp
+cmake -B build && cmake --build build -j --target llama-server llama-decide llama-quantize
+```
+
+Released assets: macOS arm64/x64, Linux x64/arm64 (CPU and Vulkan), SYCL, OpenVINO, Windows (CPU, Vulkan, SYCL, OpenCL), Android, iOS xcframework. On macOS, a tarball downloaded with a browser needs `xattr -d com.apple.quarantine`. All `kev-*` releases are on the [releases page](https://github.com/espetro/llama.cpp/releases).
+
+### 2. Get a model
+
+The 0.8B bundle from [taigrr/kev-0.8b-gguf](https://huggingface.co/taigrr/kev-0.8b-gguf) works as is (4B and 9B are at `taigrr/kev-4b-gguf` and `taigrr/kev-9b-gguf`):
+
+```sh
+pip install -U huggingface_hub
+hf download taigrr/kev-0.8b-gguf model-f16.gguf head.json --local-dir kev-0.8b
+```
+
+### 3. Run it
+
+```sh
+llama-server -m kev-0.8b/model-f16.gguf --kev-head kev-0.8b/head.json
+```
+
+```sh
+curl localhost:8080/v1/systemone -H 'content-type: application/json' -d '{
+  "state": "Shoes arrived two weeks late and in the wrong size. Also I see two charges on my card.",
+  "questions": {
+    "refund":     {"type": "noul",   "instructions": "Should we refund?"},
+    "department": {"type": "choice", "instructions": "Which team should handle this?",
+                   "criteria": {"returns": "Refunds, exchanges", "shipping": "Delays", "billing": "Charges"}}
+  }
+}'
+```
+
+```json
+{"answers":{"refund":{"type":"noul","noul":0.4431},
+            "department":{"type":"choice","choice":"shipping","confidence":0.3088,
+                          "probabilities":{"returns":0.2019,"shipping":0.5392,"billing":0.2589}}},
+ "latency_ms":344.2}
+```
+
+Same request from the CLI, without a server:
+
+```sh
+llama-decide -m kev-0.8b/model-f16.gguf --kev-head kev-0.8b/head.json --json request.json
+```
+
+### 4. Play with it in the browser
+
+Open http://localhost:8080/studio while the server runs: edit the state, add `noul` / `choice` / `score` questions, re-run on every change, and read per-option probability bars with confidence labels (automate / review / escalate). The page also shows the matching curl and Python snippets for the request you built.
+
+### 5. Optional: one self-contained GGUF
+
+Packing the head into the model removes `--kev-head` and lets you quantize:
+
+```sh
+python tools/kev/kev_pack.py --gguf kev-0.8b/model-f16.gguf --head kev-0.8b/head.json --out kev-0.8b-f16.gguf
+llama-quantize kev-0.8b-f16.gguf kev-0.8b-q8_0.gguf q8_0
+llama-server -m kev-0.8b-q8_0.gguf
+```
+
+The head tensors stay F32 through quantization. Measured against Kev's Python reference on the 0.8B fixtures: max probability delta 0.0005 (F16) / 0.011 (Q8_0), 0 argmax flips.
 
 ![llama](https://raw.githubusercontent.com/ggml-org/llama.brand/refs/heads/master/cover/llama-cpp/cover-llama-cpp-dark.svg)
 
