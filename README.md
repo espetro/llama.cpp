@@ -15,14 +15,14 @@ Stock llama.cpp packages (`brew`, `winget`, `conda-forge`) do **not** include Ke
 
 ```sh
 # Linux x64 - pre-built release (see the releases page for macOS/Windows/arm64/Vulkan/SYCL assets)
-TAG=kev-b11125-822721b
+TAG=kev-b11127-e45aa3d
 curl -L -o llama-kev.tar.gz https://github.com/espetro/llama.cpp/releases/download/$TAG/llama-$TAG-bin-ubuntu-x64.tar.gz
 tar xf llama-kev.tar.gz && export PATH="$PWD/llama-$TAG:$PATH"
 ```
 
 ```sh
 # any platform - mise, pinned to a kev tag
-mise use -g "github:espetro/llama.cpp[asset_pattern=llama-*-bin-ubuntu-x64.tar.gz]@kev-b11125-822721b"
+mise use -g "github:espetro/llama.cpp[asset_pattern=llama-*-bin-ubuntu-x64.tar.gz]@kev-b11127-e45aa3d"
 # macOS arm64: asset_pattern=llama-*-bin-macos-arm64.tar.gz    Windows: llama-*-bin-win-cpu-x64.zip
 ```
 
@@ -32,7 +32,7 @@ git clone -b kev https://github.com/espetro/llama.cpp && cd llama.cpp
 cmake -B build && cmake --build build -j --target llama-server llama-decide llama-quantize
 ```
 
-Released assets: macOS arm64/x64, Linux x64/arm64 (CPU and Vulkan), SYCL, OpenVINO, Windows (CPU, Vulkan, SYCL, OpenCL), Android, iOS xcframework. On macOS, a tarball downloaded with a browser needs `xattr -d com.apple.quarantine`. All `kev-*` releases are on the [releases page](https://github.com/espetro/llama.cpp/releases).
+Released assets: macOS arm64/x64, Linux x64/arm64 (CPU, Vulkan, CUDA 12.8 and 13.4), SYCL, OpenVINO, Snapdragon, Windows (CPU, Vulkan, CUDA, SYCL, OpenCL), Android, iOS xcframework. The CPU builds are the ones tested with Kev so far. On macOS, a tarball downloaded with a browser needs `xattr -d com.apple.quarantine`. All `kev-*` releases are on the [releases page](https://github.com/espetro/llama.cpp/releases).
 
 ### 2. Get a model
 
