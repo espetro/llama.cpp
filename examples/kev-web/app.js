@@ -24,6 +24,12 @@ async function load() {
     el("model-url").disabled = true;
 
     try {
+        // the check belongs before the download, the runtime cannot start without isolation
+        if (!self.crossOriginIsolated) {
+            throw new Error("this page is not cross-origin isolated: the service worker that adds the COOP/COEP " +
+                            "headers is missing, reload the page normally (a hard reload bypasses it)");
+        }
+
         setLoaderStatus("fetching the runtime...");
         const { loadKev } = await import("./kev-wasm.js");
 

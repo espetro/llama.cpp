@@ -22,6 +22,13 @@ export async function loadKev({ model, rowCap = 1024, threads = 0, onProgress } 
 
     // llama.cpp logs go to stderr, console.error would mark every load line as a page error
     const mod = await createKev({ printErr: (text) => console.log(text) });
+
+    // a threaded build cannot start a worker without SharedArrayBuffer, it would block forever
+    if (mod.PThread && typeof SharedArrayBuffer === "undefined") {
+        throw new Error("this page is not cross-origin isolated, the threaded build cannot run here: " +
+                        "serve it with COOP/COEP headers, reload without bypassing the service worker, " +
+                        "or use the single thread build (KEV_WASM_THREADS=0)");
+    }
     mod.FS.writeFile("/model.gguf", typeof model === "string" ? await fetchModel(model, onProgress) : model);
 
     const rc = mod.ccall("kev_init", "number", ["string", "number", "number"], ["/model.gguf", rowCap, nthreads]);
