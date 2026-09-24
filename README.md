@@ -3,7 +3,7 @@
 > [!NOTE]
 > **This fork adds native support for [Kev](https://github.com/jaredpalmer/kev) System One decision models.** A Kev GGUF loads like any other model, and `llama-server` exposes the TypeSafe-compatible `POST /v1/systemone` endpoint plus a `/studio` page for editing state and questions. No Python at inference time. Everything else is stock upstream llama.cpp.
 >
-> Jump to [Kev in 5 minutes](#kev-in-5-minutes) for install, model download and a first run.
+> Jump to [Kev in 5 minutes](#kev-in-5-minutes) for install, model download and a first run, or try it right now in your browser at [espetro.github.io/llama.cpp](https://espetro.github.io/llama.cpp/) (Kev-0.8B compiled to WebAssembly, nothing leaves the tab).
 
 ## Kev in 5 minutes
 
@@ -108,7 +108,8 @@ The 0.8B model also runs client side, compiled with emscripten (`tools/kev/wasm/
 
 ### 7. Try Kev without installing anything
 
-Kev's authors run a hosted Gradio demo on free ZeroGPU with the original Python stack: [huggingface.co/spaces/jaredpalmer/kev](https://huggingface.co/spaces/jaredpalmer/kev) (0.8B and 4B, ready-made examples). Good for a first look at 4B; this fork is the path for running Kev yourself.
+- [espetro.github.io/llama.cpp](https://espetro.github.io/llama.cpp/) - this fork compiled to WebAssembly, Kev-0.8B runs fully in the tab.
+- [huggingface.co/spaces/jaredpalmer/kev](https://huggingface.co/spaces/jaredpalmer/kev) - Kev's authors' hosted Gradio demo on free ZeroGPU with the original Python stack (0.8B and 4B, ready-made examples). Good for a first look at 4B; this fork is the path for running Kev yourself.
 
 ![llama](https://raw.githubusercontent.com/ggml-org/llama.brand/refs/heads/master/cover/llama-cpp/cover-llama-cpp-dark.svg)
 
