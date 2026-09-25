@@ -63,6 +63,8 @@ Ready-made packed q8_0 GGUFs (embedded head) are at [espetro/kev-0.8b-gguf](http
 llama-server -hf espetro/kev-0.8b-gguf
 ```
 
+Smaller demo quants (q4_k_m + importance matrix, 0-1 answer flips vs F16) are at `espetro/kev-0.8b-demo-gguf` (466 MB), `espetro/kev-4b-demo-gguf` (2.5 GB) and `espetro/kev-9b-demo-gguf` (5.6 GB).
+
 Two ways to get a GGUF with a head yourself:
 
 1. **Embedded head (preferred).** Pack the head into the backbone GGUF once:

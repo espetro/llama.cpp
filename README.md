@@ -53,6 +53,8 @@ llama-server -m kev-0.8b/kev-0.8b-q8_0.gguf
 
 The raw gojev bundles (F16 backbone + separate `head.json`, no packing) are at [taigrr/kev-0.8b-gguf](https://huggingface.co/taigrr/kev-0.8b-gguf) (also `kev-4b-gguf`, `kev-9b-gguf`) — run them with `-m model-f16.gguf --kev-head head.json`.
 
+For the smallest downloads, each size also has a **demo quant** (q4_k_m + importance-matrix calibration, 0-1 answer flips vs F16 on a 17-question probe): `espetro/kev-0.8b-demo-gguf` (466 MB), `espetro/kev-4b-demo-gguf` (2.5 GB), `espetro/kev-9b-demo-gguf` (5.6 GB). Great for a first look; ship the q8_0 in production.
+
 ### 3. Run it
 
 If you started the server with `-hf` above it is already running; otherwise:
