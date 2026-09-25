@@ -108,7 +108,7 @@ The 0.8B model also runs client side, compiled with emscripten (`tools/kev/wasm/
 
 ### 7. Try Kev without installing anything
 
-- [espetro.github.io/llama.cpp](https://espetro.github.io/llama.cpp/) - this fork compiled to WebAssembly, Kev-0.8B runs fully in the tab.
+- [espetro.github.io/llama.cpp](https://espetro.github.io/llama.cpp/) - this fork compiled to WebAssembly, Kev-0.8B runs fully in the tab. Loads the 466 MB [demo quant](https://huggingface.co/espetro/kev-0.8b-demo-gguf) by default (0 flips vs F16 on the probe set, max drift ~0.1); `?model=` selects the q8_0.
 - [huggingface.co/spaces/jaredpalmer/kev](https://huggingface.co/spaces/jaredpalmer/kev) - Kev's authors' hosted Gradio demo on free ZeroGPU with the original Python stack (0.8B and 4B, ready-made examples). Good for a first look at 4B; this fork is the path for running Kev yourself.
 
 ![llama](https://raw.githubusercontent.com/ggml-org/llama.brand/refs/heads/master/cover/llama-cpp/cover-llama-cpp-dark.svg)

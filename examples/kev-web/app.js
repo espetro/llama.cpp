@@ -3,7 +3,7 @@
 
 import { PRESETS } from "./presets.js";
 
-const DEFAULT_MODEL = "https://huggingface.co/espetro/kev-0.8b-gguf/resolve/main/kev-0.8b-q8_0.gguf";
+const DEFAULT_MODEL = "https://huggingface.co/espetro/kev-0.8b-demo-gguf/resolve/main/kev-0.8b-demo-q4km-im.gguf";
 const CACHE_NAME = "kev-models";
 
 const params = new URLSearchParams(location.search);
