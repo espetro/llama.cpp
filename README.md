@@ -1,5 +1,118 @@
 # llama.cpp
 
+> [!NOTE]
+> **This fork adds native support for [Kev](https://github.com/jaredpalmer/kev) System One decision models.** A Kev GGUF loads like any other model, and `llama-server` exposes the TypeSafe-compatible `POST /v1/systemone` endpoint plus a `/studio` page for editing state and questions. No Python at inference time. Everything else is stock upstream llama.cpp.
+>
+> Jump to [Kev in 5 minutes](#kev-in-5-minutes) for install, model download and a first run, or try it right now in your browser at [espetro.github.io/llama.cpp](https://espetro.github.io/llama.cpp/) (Kev-0.8B compiled to WebAssembly, nothing leaves the tab).
+
+## Kev in 5 minutes
+
+Kev answers typed questions about a piece of state and returns calibrated probabilities instead of text (prefill only, nothing generated). Useful for classification, routing, moderation, scoring and tool-call gating. Full reference: [docs/kev.md](docs/kev.md).
+
+### 1. Install this fork
+
+Stock llama.cpp packages (`brew`, `winget`, `conda-forge`) do **not** include Kev support. Use one of these:
+
+```sh
+# Linux x64 - latest pre-built release (see the releases page for macOS/Windows/arm64/Vulkan/CUDA/SYCL assets)
+TAG=$(curl -s https://api.github.com/repos/espetro/llama.cpp/releases | grep -m1 '"tag_name"' | cut -d'"' -f4)
+curl -L -o llama-kev.tar.gz https://github.com/espetro/llama.cpp/releases/download/$TAG/llama-$TAG-bin-ubuntu-x64.tar.gz
+tar xf llama-kev.tar.gz && export PATH="$PWD/llama-$TAG:$PATH"
+```
+
+```sh
+# any platform - mise; kev releases are pre-releases, so prerelease=true is required
+mise use -g "github:espetro/llama.cpp[asset_pattern=llama-*-bin-ubuntu-x64.tar.gz,prerelease=true]@latest"
+# macOS arm64: asset_pattern=llama-*-bin-macos-arm64.tar.gz    Windows: llama-*-bin-win-cpu-x64.zip
+# mise hides releases younger than 24 h; pass an explicit @kev-<tag> to take a fresh one
+```
+
+```sh
+# from source
+git clone -b kev https://github.com/espetro/llama.cpp && cd llama.cpp
+cmake -B build && cmake --build build -j --target llama-server llama-decide llama-quantize
+```
+
+Released assets: macOS arm64/x64, Linux x64/arm64 (CPU, Vulkan, CUDA 12.8 and 13.4), SYCL, OpenVINO, Snapdragon, Windows (CPU, Vulkan, CUDA, SYCL, OpenCL), Android, iOS xcframework. The CPU builds are the ones tested with Kev so far. On macOS, a tarball downloaded with a browser needs `xattr -d com.apple.quarantine`. All `kev-*` releases are on the [releases page](https://github.com/espetro/llama.cpp/releases).
+
+### 2. Get a model
+
+Pre-packed GGUFs (pointer head baked in, q8_0) are on Hugging Face — `-hf` downloads and loads in one step:
+
+```sh
+llama-server -hf espetro/kev-0.8b-gguf        # also kev-4b-gguf and kev-9b-gguf
+```
+
+Or fetch the file yourself:
+
+```sh
+pip install -U huggingface_hub
+hf download espetro/kev-0.8b-gguf --local-dir kev-0.8b
+llama-server -m kev-0.8b/kev-0.8b-q8_0.gguf
+```
+
+The raw gojev bundles (F16 backbone + separate `head.json`, no packing) are at [taigrr/kev-0.8b-gguf](https://huggingface.co/taigrr/kev-0.8b-gguf) (also `kev-4b-gguf`, `kev-9b-gguf`) — run them with `-m model-f16.gguf --kev-head head.json`.
+
+For the smallest downloads, each size also has a **demo quant** (q4_k_m + importance-matrix calibration, 0-1 answer flips vs F16 on a 17-question probe): `espetro/kev-0.8b-demo-gguf` (466 MB), `espetro/kev-4b-demo-gguf` (2.5 GB), `espetro/kev-9b-demo-gguf` (5.6 GB). Great for a first look; ship the q8_0 in production.
+
+### 3. Run it
+
+If you started the server with `-hf` above it is already running; otherwise:
+
+```sh
+llama-server -m kev-0.8b/kev-0.8b-q8_0.gguf
+```
+
+```sh
+curl localhost:8080/v1/systemone -H 'content-type: application/json' -d '{
+  "state": "Shoes arrived two weeks late and in the wrong size. Also I see two charges on my card.",
+  "questions": {
+    "refund":     {"type": "noul",   "instructions": "Should we refund?"},
+    "department": {"type": "choice", "instructions": "Which team should handle this?",
+                   "criteria": {"returns": "Refunds, exchanges", "shipping": "Delays", "billing": "Charges"}}
+  }
+}'
+```
+
+```json
+{"answers":{"refund":{"type":"noul","noul":0.4431},
+            "department":{"type":"choice","choice":"shipping","confidence":0.3088,
+                          "probabilities":{"returns":0.2019,"shipping":0.5392,"billing":0.2589}}},
+ "latency_ms":344.2}
+```
+
+Same request from the CLI, without a server:
+
+```sh
+llama-decide -hf espetro/kev-0.8b-gguf --json request.json
+```
+
+### 4. Play with it in the browser
+
+Open http://localhost:8080/studio while the server runs: edit the state, add `noul` / `choice` / `score` questions, re-run on every change, and read per-option probability bars with confidence labels (automate / review / escalate). The page also shows the matching curl and Python snippets for the request you built.
+
+### 5. Optional: pack a checkpoint yourself
+
+The `espetro/kev-*-gguf` repos are produced exactly like this — download a gojev bundle, fold its `head.json` into the backbone GGUF, then quantize:
+
+```sh
+hf download taigrr/kev-0.8b-gguf model-f16.gguf head.json manifest.json --local-dir kev-0.8b-src
+python tools/kev/kev_pack.py --gguf kev-0.8b-src/model-f16.gguf --head kev-0.8b-src/head.json --manifest kev-0.8b-src/manifest.json --out kev-0.8b-f16.gguf
+llama-quantize kev-0.8b-f16.gguf kev-0.8b-q8_0.gguf q8_0
+llama-server -m kev-0.8b-q8_0.gguf
+```
+
+The head tensors stay F32 through quantization. Measured against Kev's Python reference on the 0.8B fixtures: max probability delta 0.0005 (F16) / 0.011 (Q8_0), 0 argmax flips.
+
+### 6. Optional: no server at all
+
+The 0.8B model also runs client side, compiled with emscripten (`tools/kev/wasm/build.sh`, about 1 GB live in the tab, 2.1 s for 3 questions with 4 threads). [examples/kev-web](examples/kev-web) is the static page for it: the runtime and the GGUF are fetched only when you press Load, then cached by the browser. A hosted copy runs at [espetro.github.io/llama.cpp](https://espetro.github.io/llama.cpp/). See [docs/kev.md](docs/kev.md#browser-wasm).
+
+### 7. Try Kev without installing anything
+
+- [espetro.github.io/llama.cpp](https://espetro.github.io/llama.cpp/) - this fork compiled to WebAssembly, Kev-0.8B runs fully in the tab. Loads the 466 MB [demo quant](https://huggingface.co/espetro/kev-0.8b-demo-gguf) by default (0 flips vs F16 on the probe set, max drift ~0.1); `?model=` selects the q8_0.
+- [huggingface.co/spaces/jaredpalmer/kev](https://huggingface.co/spaces/jaredpalmer/kev) - Kev's authors' hosted Gradio demo on free ZeroGPU with the original Python stack (0.8B and 4B, ready-made examples). Good for a first look at 4B; this fork is the path for running Kev yourself.
+
 ![llama](https://raw.githubusercontent.com/ggml-org/llama.brand/refs/heads/master/cover/llama-cpp/cover-llama-cpp-dark.svg)
 
 <div align="center">

@@ -45,6 +45,14 @@ void llama_model_qwen35moe::load_arch_tensors(llama_model_loader & ml) {
     // output
     output_norm = create_tensor(tn(LLM_TENSOR_OUTPUT_NORM, "weight"), { n_embd }, 0);
     output = create_tensor(tn(LLM_TENSOR_OUTPUT, "weight"), { n_embd, n_vocab }, TENSOR_NOT_REQUIRED);
+    uint32_t kev_head_dim = 0;
+    ml.get_key("kev.head_dim", kev_head_dim, false);
+    if (kev_head_dim > 0) {
+        dec_head_q   = create_tensor(tn(LLM_TENSOR_DEC_HEAD_Q, "weight"), { n_embd, kev_head_dim }, TENSOR_NOT_REQUIRED);
+        dec_head_q_b = create_tensor(tn(LLM_TENSOR_DEC_HEAD_Q, "bias"),   { kev_head_dim }, TENSOR_NOT_REQUIRED);
+        dec_head_k   = create_tensor(tn(LLM_TENSOR_DEC_HEAD_K, "weight"), { n_embd, kev_head_dim }, TENSOR_NOT_REQUIRED);
+        dec_head_k_b = create_tensor(tn(LLM_TENSOR_DEC_HEAD_K, "bias"),   { kev_head_dim }, TENSOR_NOT_REQUIRED);
+    }
 
     // if output is NULL, init from the input tok embed
     if (output == NULL) {
