@@ -3,6 +3,7 @@
 #include "server-http.h"
 #include "server-task.h"
 #include "server-queue.h"
+#include "server-decision.h"
 
 #include "json.h"
 
@@ -52,6 +53,10 @@ struct server_context_meta {
     uint64_t model_n_params;
     uint64_t model_size;
     std::string model_ftype;
+    bool has_decision;
+    int32_t decision_head_dim;
+    float decision_temperature;
+    std::string decision_source;
 };
 
 enum server_state {
@@ -152,6 +157,8 @@ struct server_routes {
     server_http_context::handler_t post_embeddings;
     server_http_context::handler_t post_embeddings_oai;
     server_http_context::handler_t post_rerank;
+    server_http_context::handler_t post_systemone;
+    server_http_context::handler_t get_studio;
     server_http_context::handler_t get_lora_adapters;
     server_http_context::handler_t post_lora_adapters;
 

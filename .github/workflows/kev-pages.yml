@@ -1,0 +1,62 @@
+# Fork only: builds the Kev wasm target and publishes examples/kev-web to GitHub Pages.
+name: Kev Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - kev
+    paths:
+      - '.github/workflows/kev-pages.yml'
+      - 'examples/kev-web/**'
+      - 'tools/kev/**'
+      - 'common/decision.*'
+
+concurrency:
+  group: kev-pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Emscripten
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git
+          cd emsdk
+          ./emsdk install latest
+          ./emsdk activate latest
+
+      - name: Build the wasm target
+        run: |
+          sudo apt-get update && sudo apt-get install -y ninja-build
+          source emsdk/emsdk_env.sh
+          tools/kev/wasm/build.sh
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp examples/kev-web/index.html examples/kev-web/app.js examples/kev-web/app.css \
+             examples/kev-web/presets.js examples/kev-web/coi.js _site/
+          cp tools/kev/wasm/kev-wasm.js build-wasm-kev/bin/kev.js build-wasm-kev/bin/kev.wasm _site/
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

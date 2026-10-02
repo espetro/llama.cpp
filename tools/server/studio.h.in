@@ -1,0 +1,6 @@
+#pragma once
+
+#include <cstddef>
+
+static const unsigned char server_kev_studio_html[] = { @SERVER_KEV_STUDIO_HTML@ };
+static const size_t server_kev_studio_html_len = sizeof(server_kev_studio_html);

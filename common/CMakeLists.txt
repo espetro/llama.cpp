@@ -70,6 +70,8 @@ add_library(${TARGET}
     chat.h
     common.cpp
     common.h
+    decision.cpp
+    decision.h
     console.cpp
     console.h
     debug.cpp

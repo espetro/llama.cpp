@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kev in the browser - llama.cpp</title>
+<link rel="stylesheet" href="./app.css">
+<script src="./coi.js"></script>
+</head>
+<body>
+<header>
+  <h1>Kev in the browser</h1>
+  <p class="sub">Kev-0.8B answers typed questions about a piece of state and returns calibrated probabilities. Nothing
+  is generated and nothing leaves the tab: this page runs the llama.cpp
+  <a href="https://github.com/espetro/llama.cpp/tree/kev">Kev fork</a> compiled to WebAssembly.</p>
+</header>
+
+<section id="loader">
+  <div class="field">
+    <label for="model-url">Model (packed q8_0 GGUF)</label>
+    <input id="model-url" type="url" spellcheck="false">
+  </div>
+  <div class="controls">
+    <button id="load" class="primary">Load model</button>
+    <label class="inline"><input id="cache" type="checkbox" checked> keep in browser cache</label>
+    <span id="loader-status">about 800 MB on the first visit, then cached</span>
+  </div>
+  <div class="bar wide"><div id="progress"></div></div>
+</section>
+
+<section id="app" hidden>
+  <div class="field">
+    <label for="preset">Preset</label>
+    <select id="preset"></select>
+  </div>
+  <div class="field">
+    <label for="state">State</label>
+    <textarea id="state" rows="4"></textarea>
+  </div>
+  <div class="field">
+    <label for="questions">Questions</label>
+    <textarea id="questions" rows="10" spellcheck="false"></textarea>
+  </div>
+  <div class="controls">
+    <button id="run" class="primary">Decide</button>
+    <span id="status"></span>
+  </div>
+  <div id="answers"></div>
+  <details id="raw-box"><summary>Raw response</summary><pre id="raw"></pre></details>
+</section>
+
+<footer>
+  <p>Same decision path as <code>llama-server /v1/systemone</code>. For 4B and 9B, run the fork natively or try the
+  <a href="https://huggingface.co/spaces/jaredpalmer/kev">Kev Space</a>.</p>
+</footer>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

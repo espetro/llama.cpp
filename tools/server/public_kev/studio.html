@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kev Decision Studio</title>
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--line:#2a2f3a;--fg:#e6e8ee;--dim:#8b93a7;--acc:#4f8cff;--ok:#3ecf8e;--warn:#f5a524;--bad:#ff5c5c;font-family:ui-sans-serif,system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg)}
+header{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0}header .dim{color:var(--dim);font-size:13px}header .sp{flex:1}
+main{display:grid;grid-template-columns:minmax(380px,2fr) minmax(0,3fr);gap:16px;padding:16px 20px;max-width:1400px;margin:0 auto}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:0 0 10px}
+textarea,input,select{width:100%;background:#0c0e12;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:8px;font:13px ui-monospace,SFMono-Regular,Menlo,monospace}
+textarea{min-height:120px;resize:vertical}
+button{background:var(--acc);color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.q{border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:10px}
+.q .row{margin-top:6px}.q input.id{max-width:160px}.q select{max-width:110px}
+.crit{display:grid;grid-template-columns:140px 1fr 28px;gap:6px;margin-top:6px}
+.crit.score{grid-template-columns:1fr 28px}.x{background:transparent;border:0;color:var(--dim);font-size:16px;padding:0}
+.ans{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.ans .t{display:flex;justify-content:space-between;font-size:13px}.ans .t b{color:var(--fg)}
+.bar{display:grid;grid-template-columns:140px 1fr 56px;gap:8px;align-items:center;font-size:12px;margin-top:4px}
+.bar .k{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar .v{text-align:right;font-family:ui-monospace,monospace}
+.bar .tr{height:10px;background:#0c0e12;border-radius:5px;overflow:hidden}.bar .fl{height:100%;background:var(--acc)}.bar.best .fl{background:var(--ok)}
+.conf{font-size:12px;color:var(--dim);margin-top:4px}.conf i{display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.err{color:var(--bad);font-size:13px;white-space:pre-wrap}.meta{font-size:12px;color:var(--dim);margin-top:8px}
+pre{background:#0c0e12;border:1px solid var(--line);border-radius:6px;padding:10px;font-size:12px;overflow:auto;max-height:320px;margin:8px 0 0}
+.tabs{display:flex;gap:4px}.tabs button{background:transparent;color:var(--dim);border:1px solid var(--line)}.tabs button.on{color:var(--fg);border-color:var(--acc)}
+label.sm{font-size:12px;color:var(--dim)}
+</style>
+</head>
+<body>
+<header><h1>Kev Decision Studio</h1><span class="dim" id="model">loading model...</span><span class="sp"></span>
+<a class="dim" href="/v1/models" target="_blank">/v1/models</a></header>
+<main>
+<section>
+ <div class="panel">
+  <h2>State</h2>
+  <textarea id="state" placeholder="Anything the model should decide about: a message, a ticket, a shell command, a document..."></textarea>
+  <div class="row"><label class="sm">Presets</label><select id="preset" style="max-width:220px"></select><span class="sp"></span>
+   <button class="ghost" id="addq">+ question</button></div>
+ </div>
+ <div class="panel" style="margin-top:16px">
+  <h2>Questions</h2>
+  <div id="qs"></div>
+  <div class="row"><button id="run">Run decision</button><label class="sm"><input type="checkbox" id="auto" style="width:auto;vertical-align:middle"> run on change</label><span class="sp"></span><span class="meta" id="lat"></span></div>
+ </div>
+</section>
+<section>
+ <div class="panel">
+  <h2>Answers</h2>
+  <div id="out"><span class="meta">Run a decision to see calibrated probabilities per question.</span></div>
+ </div>
+ <div class="panel" style="margin-top:16px">
+  <div class="tabs"><button class="on" data-t="req">request</button><button data-t="res">response</button><button data-t="curl">curl</button><button data-t="py">python</button></div>
+  <pre id="code"></pre>
+ </div>
+</section>
+</main>
+<script>
+const PRESETS=[
+{name:"Support triage",state:"Shoes arrived two weeks late and in the wrong size. Also I see two charges on my card. What are you going to do about this?",
+ questions:{department:{type:"choice",instructions:"Which team should handle this?",criteria:{returns:"Exchanges, refunds, wrong or damaged items",shipping:"Delivery status, delays, lost packages",billing:"Charges, invoices, payment problems"}},
+ escalate:{type:"noul",instructions:"Should a human agent take over right away?",criteria:{true:"Angry customer, legal threat, or repeated failure",false:"Routine request the automated flow can handle"}},
+ frustration:{type:"score",instructions:"How frustrated is the customer?",criteria:["Calm","Frustrated","Very angry"]}}},
+{name:"Tool-call guard",state:"Agent proposes: rm -rf ./build && git push --force origin main",
+ questions:{safe:{type:"noul",instructions:"Is this command safe to run without asking the user?",criteria:{true:"Reversible, local, expected side effects",false:"Destructive, remote, or irreversible"}},
+ risk:{type:"score",instructions:"Blast radius if this goes wrong",criteria:["None","Local files only","Shared repo or service","Production data loss"]}}},
+{name:"Content moderation",state:"You people are useless, I will find where your office is.",
+ questions:{action:{type:"choice",instructions:"What should happen to this message?",criteria:{allow:"Fine as is",review:"Send to a human moderator",block:"Remove immediately"}},
+ threat:{type:"noul",instructions:"Does the message contain a credible threat?"}}},
+{name:"Model routing",state:"User: Summarize this 40-page PDF contract and flag unusual indemnity clauses.",
+ questions:{route:{type:"choice",instructions:"Which model tier should answer?",criteria:{small:"Simple lookup or chit-chat",large:"Long context, reasoning, or legal/financial nuance",human:"Needs a person"}}}}
+];
+const $=s=>document.querySelector(s);
+let qs=[],last={req:null,res:null},tab="req",timer=null;
+function uid(){return "q"+(qs.length+1)}
+function newQ(type){return {id:uid(),type,instructions:"",crit:type==="score"?["low","high"]:type==="choice"?[["a",""],["b",""]]:[["true",""],["false",""]]}}
+function fromPreset(p){$("#state").value=p.state;qs=Object.entries(p.questions).map(([id,q])=>{const x={id,type:q.type,instructions:q.instructions};
+ if(q.type==="score")x.crit=q.criteria.slice();else x.crit=Object.entries(q.criteria||{});if(q.type==="noul"&&!x.crit.length)x.crit=[["true",""],["false",""]];return x});render()}
+function toBody(){const questions={};for(const q of qs){if(!q.id)continue;const e={type:q.type,instructions:q.instructions};
+ if(q.type==="score")e.criteria=q.crit.filter(Boolean);else{const c={};for(const [k,v] of q.crit)if(k)c[k]=v||undefined;if(q.type==="choice"||Object.keys(c).length)e.criteria=c}
+ questions[q.id]=e}return {state:$("#state").value,questions}}
+function render(){const root=$("#qs");root.innerHTML="";qs.forEach((q,i)=>{const d=document.createElement("div");d.className="q";
+ d.innerHTML=`<div class="row"><input class="id" value="${esc(q.id)}" placeholder="id"><select><option${q.type==="noul"?" selected":""}>noul</option><option${q.type==="choice"?" selected":""}>choice</option><option${q.type==="score"?" selected":""}>score</option></select><span class="sp"></span><button class="x" title="remove">&times;</button></div>
+ <div class="row"><input class="ins" value="${esc(q.instructions)}" placeholder="instructions"></div><div class="crits"></div><div class="row"><button class="ghost addc">+ ${q.type==="score"?"level":"option"}</button></div>`;
+ d.querySelector(".id").oninput=e=>{q.id=e.target.value;changed()};d.querySelector(".ins").oninput=e=>{q.instructions=e.target.value;changed()};
+ d.querySelector("select").onchange=e=>{const t=e.target.value;const n=newQ(t);q.type=t;q.crit=n.crit;render();changed()};
+ d.querySelector(".x").onclick=()=>{qs.splice(i,1);render();changed()};
+ d.querySelector(".addc").onclick=()=>{q.crit.push(q.type==="score"?"":["",""]);render()};
+ const cr=d.querySelector(".crits");q.crit.forEach((c,j)=>{const r=document.createElement("div");r.className="crit"+(q.type==="score"?" score":"");
+ if(q.type==="score"){r.innerHTML=`<input value="${esc(c)}" placeholder="level ${j}"><button class="x">&times;</button>`;r.querySelector("input").oninput=e=>{q.crit[j]=e.target.value;changed()}}
+ else{r.innerHTML=`<input value="${esc(c[0])}" placeholder="key"${q.type==="noul"?" readonly":""}><input value="${esc(c[1])}" placeholder="description (optional)"><button class="x">&times;</button>`;
+ const [a,b]=r.querySelectorAll("input");a.oninput=e=>{c[0]=e.target.value;changed()};b.oninput=e=>{c[1]=e.target.value;changed()}}
+ r.querySelector(".x").onclick=()=>{q.crit.splice(j,1);render();changed()};cr.appendChild(r)});root.appendChild(d)});showCode()}
+function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function changed(){showCode();if($("#auto").checked){clearTimeout(timer);timer=setTimeout(run,400)}}
+async function run(){const body=toBody();last.req=body;$("#run").disabled=true;$("#lat").textContent="running...";
+ try{const t0=performance.now();const r=await fetch("/v1/systemone",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+ const txt=await r.text();let js;try{js=JSON.parse(txt)}catch{js={error:{message:txt}}}
+ if(!r.ok)throw new Error(js.error?.message||txt);last.res=js;showAnswers(js);$("#lat").textContent=`server ${js.latency_ms} ms / wall ${(performance.now()-t0).toFixed(0)} ms`}
+ catch(e){$("#out").innerHTML=`<div class="err">${esc(e.message)}</div>`;$("#lat").textContent=""}
+ $("#run").disabled=false;showCode()}
+function conf(c){const col=c>=.85?"var(--ok)":c>=.6?"var(--warn)":"var(--bad)";const lbl=c>=.85?"automate":c>=.6?"review":"escalate";return `<div class="conf"><i style="background:${col}"></i>confidence ${c.toFixed(3)} (${lbl})</div>`}
+function showAnswers(js){const out=$("#out");out.innerHTML="";for(const [id,a] of Object.entries(js.answers||{})){const d=document.createElement("div");d.className="ans";
+ let h=`<div class="t"><span>${esc(id)} <span class="meta">${a.type}</span></span><b>${a.type==="noul"?(a.noul>=.5?"yes":"no")+" "+a.noul.toFixed(3):a.type==="choice"?esc(a.choice):"score "+a.score.toFixed(2)}</b></div>`;
+ const probs=a.type==="noul"?{yes:a.noul,no:1-a.noul}:a.probabilities;const best=Object.entries(probs).sort((x,y)=>y[1]-x[1])[0][0];
+ for(const [k,p] of Object.entries(probs)){const lab=a.type==="score"&&a.legend?`${k}: ${a.legend[k]}`:k;h+=`<div class="bar${k===best?" best":""}"><span class="k" title="${esc(lab)}">${esc(lab)}</span><div class="tr"><div class="fl" style="width:${(p*100).toFixed(1)}%"></div></div><span class="v">${(p*100).toFixed(1)}%</span></div>`}
+ if(a.confidence!==undefined)h+=conf(a.confidence);if(a.type==="noul")h+=conf(Math.abs(a.noul-.5)*2);d.innerHTML=h;out.appendChild(d)}
+ out.insertAdjacentHTML("beforeend",`<div class="meta">model ${esc(js.model)}</div>`)}
+function showCode(){const body=last.req||toBody();const j=JSON.stringify(body,null,2);const base=location.origin;let s="";
+ if(tab==="req")s=j;else if(tab==="res")s=last.res?JSON.stringify(last.res,null,2):"(no response yet)";
+ else if(tab==="curl")s=`curl -s ${base}/v1/systemone \\\n  -H 'content-type: application/json' \\\n  -d '${j.replace(/'/g,"'\\''")}'`;
+ else s=`from typesafe import TypeSafeClient  # pip install typesafe-sdk\nclient = TypeSafeClient(api_key="local", base_url="${base}")\nres = client.system_one(**${j})\nprint(res.answers)`;
+ $("#code").textContent=s}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("on"));b.classList.add("on");tab=b.dataset.t;showCode()});
+$("#run").onclick=run;$("#addq").onclick=()=>{qs.push(newQ("noul"));render()};$("#state").oninput=changed;
+const sel=$("#preset");PRESETS.forEach((p,i)=>sel.add(new Option(p.name,i)));sel.onchange=()=>fromPreset(PRESETS[sel.value]);
+fetch("/v1/models").then(r=>r.json()).then(m=>{const d=m.data?.[0];const k=d?.meta?.kev;$("#model").textContent=d?`${d.id.split("/").pop()}${k?` - Kev head ${k.head_dim}d, T=${k.temperature.toFixed(2)}, ${k.source}`:""}`:"model unknown"}).catch(()=>{$("#model").textContent="model unknown"});
+fromPreset(PRESETS[0]);
+</script>
+</body>
+</html>

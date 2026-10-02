@@ -1,0 +1,60 @@
+:root { color-scheme: light dark; }
+
+body {
+    font-family: system-ui, sans-serif;
+    max-width: 54rem;
+    margin: 2rem auto;
+    padding: 0 1rem 3rem;
+    line-height: 1.45;
+}
+
+h1 { font-size: 1.4rem; margin-bottom: .2rem; }
+.sub { color: #666; margin-top: 0; }
+footer { color: #666; font-size: .85rem; border-top: 1px solid #ddd; margin-top: 2rem; }
+
+.field { margin: .9rem 0; }
+.field > label { display: block; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; color: #666; }
+
+textarea, input, select {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: .9rem;
+    padding: .4rem;
+    border: 1px solid #bbb;
+    border-radius: .3rem;
+    background: transparent;
+    color: inherit;
+}
+textarea, #model-url { font-family: ui-monospace, monospace; font-size: .82rem; }
+
+.controls { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; margin: .6rem 0; }
+.controls .inline { display: flex; align-items: center; gap: .3rem; font-size: .85rem; width: auto; }
+.controls input[type=checkbox] { width: auto; }
+
+button.primary {
+    padding: .45rem 1.1rem;
+    font-size: .9rem;
+    border: 0;
+    border-radius: .3rem;
+    background: #3b7dd8;
+    color: #fff;
+    cursor: pointer;
+}
+button.primary:disabled { background: #9aa6b4; cursor: default; }
+
+#loader-status, #status { color: #666; font-size: .85rem; }
+#loader-status.error, #status.error { color: #c0392b; }
+
+.bar { background: #e5e5ea; height: .5rem; border-radius: .25rem; overflow: hidden; }
+.bar.wide { margin: .4rem 0; }
+.bar > div { background: #3b7dd8; height: 100%; width: 0; transition: width .15s linear; }
+
+.answer { margin: 1rem 0; }
+.answer h3 { font-size: .95rem; margin: 0 0 .3rem; }
+.answer h3 span { font-weight: 400; color: #666; }
+.row { display: grid; grid-template-columns: minmax(6rem, 12rem) 1fr 3.5rem; gap: .6rem; align-items: center; font-size: .85rem; margin: .2rem 0; }
+.row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .value { text-align: right; font-variant-numeric: tabular-nums; color: #666; }
+.row.top .name { font-weight: 600; }
+
+pre { background: #f5f5f7; color: #1b1b1f; padding: .75rem; overflow-x: auto; font-size: .78rem; border-radius: .3rem; }
