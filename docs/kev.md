@@ -57,13 +57,13 @@ llama-decide -m kev-0.8b-q8_0.gguf --check reference.json      # parity against 
 
 ## Models
 
-Ready-made packed q8_0 GGUFs (embedded head) are at [espetro/kev-0.8b-gguf](https://huggingface.co/espetro/kev-0.8b-gguf), `espetro/kev-4b-gguf` and `espetro/kev-9b-gguf`:
+Ready-made packed GGUFs of Kev v1.0 (embedded head) are at [espetro/kev-0.8b-gguf](https://huggingface.co/espetro/kev-0.8b-gguf), `espetro/kev-4b-gguf` and `espetro/kev-9b-gguf`. Each repo ships `q8_0` for inference plus `f16` (re-quantization source, zero-drift reference):
 
 ```sh
-llama-server -hf espetro/kev-0.8b-gguf
+llama-server -hf espetro/kev-0.8b-gguf:Q8_0
 ```
 
-Smaller demo quants (q4_k_m + importance matrix, 0-1 answer flips vs F16) are at `espetro/kev-0.8b-demo-gguf` (466 MB), `espetro/kev-4b-demo-gguf` (2.5 GB) and `espetro/kev-9b-demo-gguf` (5.6 GB).
+Smaller demo quants (q4_k_m + importance matrix, 0-2 answer flips vs F16 on a 17-question probe) are at `espetro/kev-0.8b-demo-gguf` (466 MB), `espetro/kev-4b-demo-gguf` (2.5 GB) and `espetro/kev-9b-demo-gguf` (5.6 GB).
 
 Two ways to get a GGUF with a head yourself:
 
@@ -74,7 +74,7 @@ Two ways to get a GGUF with a head yourself:
    llama-quantize kev-0.8b-f16.gguf kev-0.8b-q8_0.gguf q8_0
    ```
 
-   `model-f16.gguf` + `head.json` come from a [gojev](https://github.com/taigrr/gojev) bundle (`taigrr/kev-{0.8b,4b,9b}-gguf` on Hugging Face) or from gojev's `tools/kev-convert` run on a Kev checkpoint. Quantization keeps the `dec.head_*` tensors in F32. The packed file still loads in stock llama.cpp as a plain Qwen3.5 model.
+   `model-f16.gguf` + `head.json` come from a [gojev](https://github.com/taigrr/gojev) bundle (`taigrr/kev-{0.8b,4b,9b}-gguf` on Hugging Face, v0 weights) or are produced from a Kev v1.0 checkpoint: `tools/kev/kev_v10_merge.py` merges the LoRA adapter into the pinned Qwen3.5 base in fp32, `convert_hf_to_gguf.py --no-mtp` converts it, and `tools/kev/kev_head.py` turns `head.pt` into `head.json`. Quantization keeps the `dec.head_*` tensors in F32. The packed file still loads in stock llama.cpp as a plain Qwen3.5 model.
 
 2. **Sidecar head.** Keep the gojev layout and pass the head explicitly:
 

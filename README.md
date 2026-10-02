@@ -37,23 +37,23 @@ Released assets: macOS arm64/x64, Linux x64/arm64 (CPU, Vulkan, CUDA 12.8 and 13
 
 ### 2. Get a model
 
-Pre-packed GGUFs (pointer head baked in, q8_0) are on Hugging Face — `-hf` downloads and loads in one step:
+Pre-packed GGUFs of **Kev v1.0** (pointer head baked in) are on Hugging Face — `-hf` downloads and loads in one step. Each repo carries two files: `q8_0` for inference and `f16` as the re-quantization source / zero-drift reference:
 
 ```sh
-llama-server -hf espetro/kev-0.8b-gguf        # also kev-4b-gguf and kev-9b-gguf
+llama-server -hf espetro/kev-0.8b-gguf:Q8_0   # also kev-4b-gguf and kev-9b-gguf
 ```
 
 Or fetch the file yourself:
 
 ```sh
 pip install -U huggingface_hub
-hf download espetro/kev-0.8b-gguf --local-dir kev-0.8b
+hf download espetro/kev-0.8b-gguf kev-0.8b-q8_0.gguf --local-dir kev-0.8b
 llama-server -m kev-0.8b/kev-0.8b-q8_0.gguf
 ```
 
-The raw gojev bundles (F16 backbone + separate `head.json`, no packing) are at [taigrr/kev-0.8b-gguf](https://huggingface.co/taigrr/kev-0.8b-gguf) (also `kev-4b-gguf`, `kev-9b-gguf`) — run them with `-m model-f16.gguf --kev-head head.json`.
+The raw v0 gojev bundles (F16 backbone + separate `head.json`, no packing) remain at [taigrr/kev-0.8b-gguf](https://huggingface.co/taigrr/kev-0.8b-gguf) (also `kev-4b-gguf`, `kev-9b-gguf`) — run them with `-m model-f16.gguf --kev-head head.json`. The v1.0 sources are the [jaredpalmer/kev-*](https://huggingface.co/jaredpalmer) adapter + `head.pt` repos; see "pack a checkpoint yourself" below for the pipeline.
 
-For the smallest downloads, each size also has a **demo quant** (q4_k_m + importance-matrix calibration, 0-1 answer flips vs F16 on a 17-question probe): `espetro/kev-0.8b-demo-gguf` (466 MB), `espetro/kev-4b-demo-gguf` (2.5 GB), `espetro/kev-9b-demo-gguf` (5.6 GB). Great for a first look; ship the q8_0 in production.
+For the smallest downloads, each size also has a **demo quant** (q4_k_m + importance-matrix calibration, 0-2 answer flips vs F16 on a 17-question probe): `espetro/kev-0.8b-demo-gguf` (466 MB), `espetro/kev-4b-demo-gguf` (2.5 GB), `espetro/kev-9b-demo-gguf` (5.6 GB). Great for a first look; ship the q8_0 in production.
 
 ### 3. Run it
 
@@ -84,7 +84,7 @@ curl localhost:8080/v1/systemone -H 'content-type: application/json' -d '{
 Same request from the CLI, without a server:
 
 ```sh
-llama-decide -hf espetro/kev-0.8b-gguf --json request.json
+llama-decide -hf espetro/kev-0.8b-gguf:Q8_0 --json request.json
 ```
 
 ### 4. Play with it in the browser
@@ -93,14 +93,20 @@ Open http://localhost:8080/studio while the server runs: edit the state, add `no
 
 ### 5. Optional: pack a checkpoint yourself
 
-The `espetro/kev-*-gguf` repos are produced exactly like this — download a gojev bundle, fold its `head.json` into the backbone GGUF, then quantize:
+The `espetro/kev-*-gguf` repos are produced exactly like this — merge the v1.0 LoRA adapter into the pinned Qwen3.5 base, convert to GGUF, fold `head.pt` in, then quantize:
 
 ```sh
-hf download taigrr/kev-0.8b-gguf model-f16.gguf head.json manifest.json --local-dir kev-0.8b-src
-python tools/kev/kev_pack.py --gguf kev-0.8b-src/model-f16.gguf --head kev-0.8b-src/head.json --manifest kev-0.8b-src/manifest.json --out kev-0.8b-f16.gguf
+hf download jaredpalmer/kev-0.8b --local-dir kev-0.8b-src
+hf download Qwen/Qwen3.5-0.8B-Base --revision dc7cdfe2 --local-dir kev-0.8b-base
+python tools/kev/kev_v10_merge.py kev-0.8b-src kev-0.8b-base
+python convert_hf_to_gguf.py kev-0.8b-base --outtype f16 --outfile model-f16.gguf --no-mtp
+python tools/kev/kev_head.py kev-0.8b-src/head.pt head.json
+python tools/kev/kev_pack.py --gguf model-f16.gguf --head head.json --manifest manifest.json --out kev-0.8b-f16.gguf
 llama-quantize kev-0.8b-f16.gguf kev-0.8b-q8_0.gguf q8_0
 llama-server -m kev-0.8b-q8_0.gguf
 ```
+
+The merge applies the adapter in fp32 (`scale = alpha/r = 2.0`) because `peft` cannot resolve the composite multimodal checkpoint layout itself; `--no-mtp` skips the ~90 MB of unused NextN draft tensors.
 
 The head tensors stay F32 through quantization. Measured against Kev's Python reference on the 0.8B fixtures: max probability delta 0.0005 (F16) / 0.011 (Q8_0), 0 argmax flips.
 
@@ -110,7 +116,7 @@ The 0.8B model also runs client side, compiled with emscripten (`tools/kev/wasm/
 
 ### 7. Try Kev without installing anything
 
-- [espetro.github.io/llama.cpp](https://espetro.github.io/llama.cpp/) - this fork compiled to WebAssembly, Kev-0.8B runs fully in the tab. Loads the 466 MB [demo quant](https://huggingface.co/espetro/kev-0.8b-demo-gguf) by default (0 flips vs F16 on the probe set, max drift ~0.1); `?model=` selects the q8_0.
+- [espetro.github.io/llama.cpp](https://espetro.github.io/llama.cpp/) - this fork compiled to WebAssembly, Kev-0.8B runs fully in the tab. Loads the 466 MB [demo quant](https://huggingface.co/espetro/kev-0.8b-demo-gguf) by default (2 near-tie flips vs F16 on the probe set, max drift ~0.2); `?model=` selects the q8_0.
 - [huggingface.co/spaces/jaredpalmer/kev](https://huggingface.co/spaces/jaredpalmer/kev) - Kev's authors' hosted Gradio demo on free ZeroGPU with the original Python stack (0.8B and 4B, ready-made examples). Good for a first look at 4B; this fork is the path for running Kev yourself.
 
 ![llama](https://raw.githubusercontent.com/ggml-org/llama.brand/refs/heads/master/cover/llama-cpp/cover-llama-cpp-dark.svg)
